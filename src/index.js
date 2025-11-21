@@ -1,23 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-if (req.method === 'GET' && pathOnly === '/admin') {
-  const authorized = checkBasicAuth(req);
-  if (!authorized) {
-    res.statusCode = 302;
-    res.setHeader('Location', '/login');
-    return res.end();
-  }
-
-  // serve admin.html
-  const adminPath = path.join(__dirname, '..', 'public', 'admin.html');
-  const html = fs.readFileSync(adminPath, 'utf8');
-  res.setHeader('Content-Type', 'text/html');
-  return res.end(html);
-}
-
-
-const CODES_FILE = process.env.CODES_FILE || '/tmp/codes.json'; // on Vercel use /tmp
+const CODES_FILE = process.env.CODES_FILE || '/tmp/codes.json'; // ephemeral on Vercel
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'admin';
 
@@ -39,13 +23,36 @@ function saveCodes(codes) {
   }
 }
 
+function parseCookies(cookieHeader) {
+  if (!cookieHeader) return {};
+  return cookieHeader.split(';').map(c => c.trim()).reduce((acc, pair) => {
+    const eq = pair.indexOf('=');
+    if (eq === -1) return acc;
+    const k = pair.slice(0, eq).trim();
+    const v = pair.slice(eq + 1).trim();
+    acc[k] = decodeURIComponent(v);
+    return acc;
+  }, {});
+}
+
 function checkBasicAuth(req) {
   const auth = req.headers['authorization'] || '';
-  if (!auth.startsWith('Basic ')) return false;
-  const b = auth.slice(6);
-  const s = Buffer.from(b, 'base64').toString('utf8');
-  const [u, p] = s.split(':');
-  return u === ADMIN_USER && p === ADMIN_PASS;
+  if (auth.startsWith('Basic ')) {
+    const b = auth.slice(6);
+    const s = Buffer.from(b, 'base64').toString('utf8');
+    const [u, p] = s.split(':');
+    return u === ADMIN_USER && p === ADMIN_PASS;
+  }
+  // fallback: check cookie admin_token (expected to be base64 of "user:pass")
+  const cookies = parseCookies(req.headers['cookie']);
+  if (cookies && cookies.admin_token) {
+    try {
+      const s = Buffer.from(cookies.admin_token, 'base64').toString('utf8');
+      const [u, p] = s.split(':');
+      return u === ADMIN_USER && p === ADMIN_PASS;
+    } catch (e) {}
+  }
+  return false;
 }
 
 module.exports = (req, res) => {
@@ -61,7 +68,27 @@ module.exports = (req, res) => {
       } else body = {};
     } catch (e) { body = {}; }
 
-    // POST /api/generate -> require Basic auth
+    // Serve /admin only if authorized - else redirect to /login
+    if (req.method === 'GET' && pathOnly === '/admin') {
+      if (!checkBasicAuth(req)) {
+        res.statusCode = 302;
+        res.setHeader('Location', '/login');
+        return res.end();
+      }
+      // serve admin.html
+      const adminPath = path.join(__dirname, '..', 'public', 'admin.html');
+      try {
+        const html = fs.readFileSync(adminPath, 'utf8');
+        res.setHeader('Content-Type', 'text/html');
+        return res.end(html);
+      } catch (e) {
+        res.statusCode = 500;
+        res.end('Error loading admin page');
+        return;
+      }
+    }
+
+    // POST /api/generate -> require Basic auth / cookie auth
     if (req.method === 'POST' && pathOnly === '/api/generate') {
       if (!checkBasicAuth(req)) {
         res.statusCode = 401;
@@ -79,7 +106,7 @@ module.exports = (req, res) => {
       return;
     }
 
-    // GET /api/codes -> require Basic auth
+    // GET /api/codes -> require auth
     if (req.method === 'GET' && pathOnly === '/api/codes') {
       if (!checkBasicAuth(req)) {
         res.statusCode = 401;
@@ -93,7 +120,7 @@ module.exports = (req, res) => {
       return;
     }
 
-    // POST /api/use -> body: { code: "XXXX" } ; single-use: if exists and not used -> mark used and return ok
+    // POST /api/use -> public single-use endpoint
     if (req.method === 'POST' && pathOnly === '/api/use') {
       const inputCode = (body && body.code) ? String(body.code).trim().toUpperCase() : '';
       if (!inputCode) {
@@ -119,7 +146,7 @@ module.exports = (req, res) => {
       return;
     }
 
-    // POST /api/invalidate -> admin only, body { code: "XXXX" } -> mark used=true
+    // POST /api/invalidate -> admin only
     if (req.method === 'POST' && pathOnly === '/api/invalidate') {
       if (!checkBasicAuth(req)) {
         res.statusCode = 401;
