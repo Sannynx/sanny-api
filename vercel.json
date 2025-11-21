@@ -5,9 +5,10 @@
     { "src": "public/**", "use": "@vercel/static" }
   ],
   "routes": [
+    { "src": "^/$", "status": 308, "headers": { "Location": "/login" } },
     { "src": "/login", "dest": "public/login.html" },
-    { "src": "/admin", "dest": "src/index.js" }
-    { "src": "/(.*)", "dest": "src/index.js" },
-    { "src": "/", "status": 308, "headers": { "Location": "/login" } }
+    { "src": "/admin", "dest": "public/admin.html" },
+    { "src": "/api/(.*)", "dest": "src/index.js" },
+    { "src": "/(.*)", "dest": "public/$1" }
   ]
 }
