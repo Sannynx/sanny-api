@@ -1,6 +1,22 @@
 const fs = require('fs');
 const path = require('path');
 
+if (req.method === 'GET' && pathOnly === '/admin') {
+  const authorized = checkBasicAuth(req);
+  if (!authorized) {
+    res.statusCode = 302;
+    res.setHeader('Location', '/login');
+    return res.end();
+  }
+
+  // serve admin.html
+  const adminPath = path.join(__dirname, '..', 'public', 'admin.html');
+  const html = fs.readFileSync(adminPath, 'utf8');
+  res.setHeader('Content-Type', 'text/html');
+  return res.end(html);
+}
+
+
 const CODES_FILE = process.env.CODES_FILE || '/tmp/codes.json'; // on Vercel use /tmp
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'admin';
