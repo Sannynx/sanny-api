@@ -8,7 +8,7 @@
     { "src": "^/$", "status": 308, "headers": { "Location": "/login" } },
     { "src": "/login", "dest": "public/login.html" },
     { "src": "/admin", "dest": "src/index.js" },
-    { "src": "/(.*)", "dest": "src/index.js" },
+    { "src": "/api/(.*)", "dest": "src/index.js" },
     { "src": "/(.*)", "dest": "public/$1" }
   ]
 }
