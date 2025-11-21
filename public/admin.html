@@ -3,28 +3,26 @@
 <head>
   <meta charset="utf-8">
   <title>Admin</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     body { background:#071025; color:#dfefff; font-family: Inter, Arial; margin:0; padding:28px; }
     header { display:flex; justify-content:space-between; align-items:center; }
     h1 { margin:0; font-size:20px; }
     .btn { background:#3b82f6; border:none; padding:10px 12px; border-radius:8px; color:white; cursor:pointer; }
-    .layout { display:flex; gap:20px; margin-top:20px; flex-wrap:wrap; }
-    .card { background:#071425; padding:16px; border-radius:10px; flex:1; min-width:300px; box-shadow:0 8px 20px rgba(2,6,23,0.6); }
+    .layout { display:flex; gap:20px; margin-top:20px; }
+    .card { background:#071425; padding:16px; border-radius:10px; flex:1; box-shadow:0 8px 20px rgba(2,6,23,0.6); }
     .code { font-family:monospace; background:#021226; padding:8px; border-radius:6px; display:inline-block; }
     table { width:100%; border-collapse:collapse; margin-top:10px; }
     th, td { text-align:left; padding:8px; border-bottom:1px solid #0b2a3a; font-size:14px; }
     input[type=text] { padding:8px; border-radius:6px; border:1px solid #123; background:#011421; color:#dfefff; width:100%; }
     .danger { background:#ef4444; }
-    .small-muted { color:#9fb0c8; font-size:13px; margin-top:8px; }
   </style>
 </head>
 <body>
   <header>
     <h1>Painel Admin</h1>
     <div>
-      <button id="genBtn" class="btn">Gerar Código</button>
-      <button id="logoutBtn" class="btn">Sair</button>
+      <button class="btn" onclick="generate()">Gerar Código</button>
+      <button class="btn" onclick="logout()">Sair</button>
     </div>
   </header>
 
@@ -37,198 +35,103 @@
         <input id="filter" placeholder="Filtrar código..." oninput="renderList()">
       </div>
       <div id="list" style="margin-top:10px"></div>
-      <div id="list_msg" class="small-muted"></div>
     </div>
 
     <div class="card">
       <h3>Validar código (single-use)</h3>
       <div>
         <input id="use_code" placeholder="Digite o código">
-        <button id="useBtn" class="btn" style="margin-top:8px">Validar & Consumir</button>
+        <button class="btn" style="margin-top:8px" onclick="useCode()">Validar & Consumir</button>
         <div id="use_msg" style="margin-top:8px"></div>
       </div>
 
       <h3 style="margin-top:18px">Invalidar código</h3>
       <div>
         <input id="inv_code" placeholder="Código para invalidar">
-        <button id="invBtn" class="btn" style="margin-top:8px">Invalidar</button>
+        <button class="btn" style="margin-top:8px" onclick="invalidate()">Invalidar</button>
         <div id="inv_msg" style="margin-top:8px"></div>
       </div>
     </div>
   </div>
 
 <script>
-/* ---------- UTILITÁRIOS ---------- */
 function getCookie(name) {
   const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
   return m ? decodeURIComponent(m[1]) : '';
 }
-
-function authHeader() {
-  const token = getCookie('admin_token');
-  if (!token) return null;
-  // token já deve ser base64(user:pass)
-  return 'Basic ' + token;
+function getAuth(){
+  return getCookie('admin_token') || '';
 }
-
-function redirectToLogin() {
-  window.location.href = '/login';
-}
-
-/* safe JSON parse */
-async function safeJson(res) {
-  const txt = await res.text();
-  try {
-    return JSON.parse(txt || '{}');
-  } catch (e) {
-    return { _raw: txt };
-  }
-}
-
-/* generic admin fetch that adds Authorization */
-async function adminFetch(path, opts = {}) {
-  const header = authHeader();
-  if (!header) {
-    redirectToLogin();
-    return null;
-  }
-
-  const headers = Object.assign({}, opts.headers || {}, {
-    'Authorization': header
-  });
-
-  // only set Content-Type if there is a body and header not present
-  if (opts.body && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json';
-  }
-
-  try {
-    const res = await fetch(path, Object.assign({}, opts, { headers }));
-    if (res.status === 401) {
-      // token inválido/expirado
-      alert('Não autorizado. Faça login novamente.');
-      redirectToLogin();
-      return null;
-    }
-    return res;
-  } catch (e) {
-    console.error('network error:', e);
-    return null;
-  }
-}
-
-/* ---------- UI / AÇÕES ---------- */
-document.addEventListener('DOMContentLoaded', () => {
-  // elementos
-  const genBtn = document.getElementById('genBtn');
-  const logoutBtn = document.getElementById('logoutBtn');
-  const useBtn = document.getElementById('useBtn');
-  const invBtn = document.getElementById('invBtn');
-
-  // handlers
-  genBtn.addEventListener('click', generate);
-  logoutBtn.addEventListener('click', logout);
-  useBtn.addEventListener('click', useCode);
-  invBtn.addEventListener('click', invalidate);
-
-  // inicialização (verifica cookie e carrega códigos)
-  if (!authHeader()) {
-    // sem token -> volta pro login
-    redirectToLogin();
+function check(){
+  if(!getAuth()){
+    window.location = '/login';
     return;
   }
   fetchCodes();
-});
-
-/* ---------- AÇÕES ---------- */
-async function generate() {
-  const res = await adminFetch('/api/generate', { method: 'POST' });
-  if (!res) return;
-  const data = await safeJson(res);
-  if (data.code) {
-    document.getElementById('last').innerText = data.code;
-    fetchCodes();
-  } else {
-    alert('Resposta inesperada ao gerar código.');
-  }
 }
-
-async function fetchCodes() {
-  document.getElementById('list_msg').innerText = 'Carregando...';
-  const res = await adminFetch('/api/codes', { method: 'GET' });
-  if (!res) {
-    document.getElementById('list_msg').innerText = '';
+async function generate(){
+  const auth = getAuth();
+  const res = await fetch('/api/generate', { method:'POST', headers:{ 'Authorization': 'Basic ' + auth } });
+  if(res.status === 401){
+    alert('Não autorizado. Faça login novamente.');
+    logout();
     return;
   }
-  const data = await safeJson(res);
+  const data = await res.json();
+  document.getElementById('last').innerText = data.code;
+  fetchCodes();
+}
+async function fetchCodes(){
+  const auth = getAuth();
+  const res = await fetch('/api/codes', { headers:{ 'Authorization': 'Basic ' + auth } });
+  if(res.status === 401){
+    logout();
+    return;
+  }
+  const data = await res.json();
   window._codes = data.codes || [];
   renderList();
-  document.getElementById('list_msg').innerText = '';
 }
-
-function renderList() {
+function renderList(){
   const filter = (document.getElementById('filter').value || '').toUpperCase().trim();
   const list = window._codes || [];
   const out = list.filter(c => !filter || c.code.includes(filter)).map(c => {
-    const used = c.used ? ' (USED)' : '';
+    const used = c.used ? (' (USED)') : '';
     const usedAt = c.used_at ? (' - ' + c.used_at) : '';
-    return `<div style="margin-bottom:8px">
-              <span class="code">${c.code}</span>${used}${usedAt}
-              <button onclick="copyCode('${c.code}')" style="margin-left:8px">Copiar</button>
-            </div>`;
+    return `<div style="margin-bottom:8px"><span class="code">${c.code}</span> ${used}${usedAt} <button onclick="copyCode('${c.code}')" style="margin-left:8px">Copiar</button></div>`;
   }).join('');
   document.getElementById('list').innerHTML = out || '<i>Nenhum código</i>';
 }
-
-function copyCode(s) {
-  navigator.clipboard.writeText(s).then(()=> {
-    // feedback opcional
-  });
-}
-
-async function useCode() {
+function copyCode(s){ navigator.clipboard.writeText(s); }
+async function useCode(){
   const code = document.getElementById('use_code').value.trim();
-  if (!code) return;
-  try {
-    const res = await fetch('/api/use', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ code })
-    });
-    const data = await safeJson(res);
-    if (res.ok && data.valid) {
-      document.getElementById('use_msg').innerText = 'Código válido e consumido.';
-      fetchCodes();
-    } else {
-      document.getElementById('use_msg').innerText = data.error || 'Código inválido.';
-    }
-  } catch (e) {
-    document.getElementById('use_msg').innerText = 'Erro de rede.';
+  if(!code) return;
+  const res = await fetch('/api/use', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ code }) });
+  const data = await res.json();
+  if(res.status === 200 && data.valid){
+    document.getElementById('use_msg').innerText = 'Código válido e consumido.';
+    fetchCodes();
+  } else {
+    document.getElementById('use_msg').innerText = data.error || 'Código inválido';
   }
 }
-
-async function invalidate() {
+async function invalidate(){
   const code = document.getElementById('inv_code').value.trim();
-  if (!code) return;
-  const res = await adminFetch('/api/invalidate', {
-    method: 'POST',
-    body: JSON.stringify({ code })
-  });
-  if (!res) return;
-  const data = await safeJson(res);
-  if (res.ok && data.ok) {
+  if(!code) return;
+  const auth = getAuth();
+  const res = await fetch('/api/invalidate', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization': 'Basic ' + auth }, body: JSON.stringify({ code }) });
+  const data = await res.json();
+  if(res.status === 200 && data.ok){
     document.getElementById('inv_msg').innerText = 'Código invalidado.';
     fetchCodes();
   } else {
-    document.getElementById('inv_msg').innerText = data.error || 'Erro.';
+    document.getElementById('inv_msg').innerText = data.error || 'Erro';
   }
 }
-
-function logout() {
-  // remove cookie admin_token
+function logout(){ 
+  // clear cookie
   document.cookie = 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-  // pequena espera para garantir remoção
-  setTimeout(() => { window.location.href = '/login'; }, 50);
+  window.location = '/login'; 
 }
 </script>
 </body>
