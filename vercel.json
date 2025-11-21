@@ -8,6 +8,6 @@
     { "src": "/login", "dest": "public/login.html" },
     { "src": "/admin", "dest": "public/admin.html" },
     { "src": "/(.*)", "dest": "src/index.js" },
-    { "src": "/(.*)", "dest": "public/$1" }
+    { "src": "/", "status": 308, "headers": { "Location": "/login" } }
   ]
 }
