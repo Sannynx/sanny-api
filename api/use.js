@@ -37,7 +37,7 @@ export default async function handler(req, res) {
   }
 
   // Ativar por 24h
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + 15000);
 
   await setCodeUsedDB(code, expiresAt);
 
