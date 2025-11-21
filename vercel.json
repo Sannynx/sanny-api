@@ -6,7 +6,7 @@
   ],
   "routes": [
     { "src": "/login", "dest": "public/login.html" },
-    { "src": "/admin", "dest": "public/admin.html" },
+    { "src": "/admin", "dest": "src/index.js" }
     { "src": "/(.*)", "dest": "src/index.js" },
     { "src": "/", "status": 308, "headers": { "Location": "/login" } }
   ]
