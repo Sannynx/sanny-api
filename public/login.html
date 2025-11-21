@@ -24,12 +24,24 @@
   </div>
 
 <script>
+function setCookie(name, value, days) {
+  let s = name + "=" + encodeURIComponent(value) + "; path=/;";
+  if (days) {
+    const d = new Date();
+    d.setTime(d.getTime() + (days*24*60*60*1000));
+    s += " expires=" + d.toUTCString() + ";";
+  }
+  document.cookie = s;
+}
+
 function login(){
   const user = document.getElementById('user').value;
   const pass = document.getElementById('pass').value;
   if(user === 'admin' && pass === 'admin'){
-    // store a simple token
-    localStorage.setItem('admin_token', btoa('admin:admin'));
+    // store a token as a cookie (base64 of user:pass)
+    const token = btoa(user + ':' + pass);
+    setCookie('admin_token', token, 1);
+    // redirect to /admin which will be served only if cookie present
     window.location.href = '/admin';
   } else {
     document.getElementById('msg').innerText = 'Credenciais inválidas';
