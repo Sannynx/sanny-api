@@ -1,6 +1,6 @@
 import { sql } from "@vercel/postgres";
 
-// Salva novo código
+// cria código
 export async function saveCode(code) {
   await sql`
     INSERT INTO codes (code, created_at, used, used_at, expires_at)
@@ -8,7 +8,7 @@ export async function saveCode(code) {
   `;
 }
 
-// Lista códigos
+// lista códigos
 export async function listCodes() {
   const { rows } = await sql`
     SELECT code, created_at, used, used_at, expires_at
@@ -18,18 +18,18 @@ export async function listCodes() {
   return rows;
 }
 
-// Obtém o código completo
+// pega um código específico
 export async function getCodeDB(code) {
   const { rows } = await sql`
     SELECT *
     FROM codes
     WHERE code = ${code}
-    LIMIT 1
+    LIMIT 1;
   `;
   return rows[0] || null;
 }
 
-// Marca o código como usado e define expiração
+// marca como usado e define expiração
 export async function setCodeUsedDB(code, expiresAt) {
   const { rows } = await sql`
     UPDATE codes
@@ -42,13 +42,26 @@ export async function setCodeUsedDB(code, expiresAt) {
   return rows[0] || null;
 }
 
-// Invalida (marca como usado)
+// função antiga (mantida para compatibilidade)
+// NÃO USE para lógica de expiração
+export async function useCodeDB(code) {
+  const { rows } = await sql`
+    UPDATE codes
+    SET used = TRUE,
+        used_at = NOW()
+    WHERE code = ${code} AND used = FALSE
+    RETURNING *;
+  `;
+  return rows[0] || null;
+}
+
+// invalida o código (expira na hora)
 export async function invalidateCode(code) {
   const { rows } = await sql`
     UPDATE codes
     SET used = TRUE,
         used_at = NOW(),
-        expires_at = NOW()  -- expira na hora
+        expires_at = NOW()
     WHERE code = ${code}
     RETURNING *;
   `;
