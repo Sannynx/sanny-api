@@ -1,0 +1,11 @@
+{
+  "name": "neon-codes-api",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@vercel/postgres": "latest"
+  },
+  "scripts": {
+    "start": "node src/admin.js"
+  }
+}

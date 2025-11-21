@@ -1,0 +1,42 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "src/admin.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/*.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "^/$",
+      "status": 308,
+      "headers": {
+        "Location": "/login"
+      }
+    },
+    {
+      "src": "/login",
+      "dest": "public/login.html"
+    },
+    {
+      "src": "/admin",
+      "dest": "src/admin.js"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "api/$1.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "public/$1"
+    }
+  ]
+}
