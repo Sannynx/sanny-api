@@ -1,1 +1,1 @@
-# sanny-api
+# Simple Vercel API - Codes
